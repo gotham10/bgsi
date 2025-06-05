@@ -6,7 +6,7 @@ from string import Template
 
 app = FastAPI()
 
-HTML_TEMPLATE = Template("""
+INDEX_HTML = Template("""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,7 +51,7 @@ HTML_TEMPLATE = Template("""
 </html>
 """)
 
-INDEX_HTML = Template("""
+HTML_TEMPLATE = Template("""
 <!DOCTYPE html>
 <html lang=\"en\">
 <head>

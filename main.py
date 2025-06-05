@@ -8,77 +8,97 @@ app = FastAPI()
 
 HTML_TEMPLATE = Template("""
 <!DOCTYPE html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"UTF-8\">
-  <title>API Data</title>
-  <style>
-    body {
-      background: #0f0f0f;
-      color: #fefefe;
-      font-family: monospace;
-      font-size: 13px;
-      padding: 1rem;
-      margin: 0;
-      white-space: pre;
-      overflow-x: auto;
-    }
-  </style>
-</head>
-<body>$json</body>
-</html>
-""")
-
-INDEX_HTML = """
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BGSI API Viewer</title>
+  <title>API Viewer</title>
   <style>
     body {
-      background: #121212;
+      background-color: #1a1a1a;
       color: #f0f0f0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
-      padding: 3rem;
+      padding: 2rem;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      height: 100vh;
     }
     h1 {
+      color: #4fc3f7;
       font-size: 2.5rem;
       margin-bottom: 1rem;
     }
     p {
-      font-size: 1.2rem;
       max-width: 600px;
+      font-size: 1.2rem;
       text-align: center;
+      line-height: 1.5;
     }
-    code {
-      background: #333;
-      padding: 0.2rem 0.5rem;
-      border-radius: 5px;
-      color: #00eaff;
+    a {
+      color: #4fc3f7;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
-  <h1>Welcome to the BGSI API Viewer</h1>
-  <p>To explore data, use the <code>/api/&lt;slug&gt;</code> endpoint in the address bar.</p>
-  <p>Example: <code>/api/stats</code></p>
+  <h1>Hello 👋</h1>
+  <p>This is the API Viewer for <a href="https://api.bgsi.gg">bgsi.gg</a>.<br>
+     You can use the <a href="/">home page</a> to browse available endpoints, and click to see live data here.</p>
+</body>
+</html>
+""")
+
+INDEX_HTML = Template("""
+<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>Slug Viewer</title>
+  <style>
+    body {
+      background: #1a1a1a;
+      color: #f0f0f0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      margin: 0.5rem 0;
+      background: #2c2c2c;
+      padding: 1rem;
+      border-radius: 8px;
+      transition: background 0.3s;
+    }
+    li:hover {
+      background: #3a3a3a;
+    }
+    a {
+      color: #4fc3f7;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>API Slugs</h1>
+  <ul>
+    $items
+  </ul>
 </body>
 </html>
 """)
 
 API_BASE = "https://api.bgsi.gg"
-
-@app.get("/", response_class=HTMLResponse)
-async def index():
-    return HTMLResponse(INDEX_HTML)
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

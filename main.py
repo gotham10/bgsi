@@ -50,7 +50,25 @@ INDEX_HTML = Template("""
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BGSI.GG API Explorer</title>
+  <meta name="description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
+  <meta name="theme-color" content="#080808">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://bgsi-kyc3.onrender.com/">
+  <meta property="og:title" content="BGSI.GG API Explorer">
+  <meta property="og:description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
+  <meta property="og:image" content="https://bgsi-kyc3.onrender.com/Logo.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://bgsi-kyc3.onrender.com/">
+  <meta property="twitter:title" content="BGSI.GG API Explorer">
+  <meta property="twitter:description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
+  <meta property="twitter:image" content="https://bgsi-kyc3.onrender.com/Logo.png">
+
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     @keyframes fadeInDown {
@@ -172,7 +190,7 @@ INDEX_HTML = Template("""
 <body>
   <div class="container">
     <h1>API Data Explorer</h1>
-    <p>Dynamically inspect live JSON responses from the <a href="https://api.bgsi.gg" target="_blank" rel="noopener noreferrer">BGSI.GG API</a> or view proxied images.</p>
+    <p>Explore live JSON responses from the <a href="https://api.bgsi.gg" target="_blank" rel="noopener noreferrer">BGSI.GG API</a> or view proxied images.</p>
     <div class="api-info">
       <p>This interface allows you to directly proxy API requests and view data, or proxy images from the target domain.
       To fetch API data, modify the URL by appending the API path you wish to query after <code class="example-path">/api/</code>.

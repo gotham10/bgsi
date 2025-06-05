@@ -1,60 +1,238 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 import httpx
 import uvicorn
+from string import Template
 import json
 import html
 import io
-from datetime import datetime
 
-app = FastAPI(title="BGSI.GG API Explorer & Image Proxy", docs_url=None, redoc_url=None)
+app = FastAPI(title="BGSI.GG API Explorer & Image Proxy")
+
+INDEX_HTML = Template("""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BGSI.GG API Explorer</title>
+  <meta name="description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
+  <meta name="theme-color" content="#080808">
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://bgsi-kyc3.onrender.com/">
+  <meta property="og:title" content="BGSI.GG API Explorer">
+  <meta property="og:description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
+  <meta property="og:image" content="https://bgsi-kyc3.onrender.com/Logo.png">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://bgsi-kyc3.onrender.com/">
+  <meta property="twitter:title" content="BGSI.GG API Explorer">
+  <meta property="twitter:description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
+  <meta property="twitter:image" content="https://bgsi-kyc3.onrender.com/Logo.png">
+
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    @keyframes fadeInDown {
+      0% { opacity: 0; transform: translateY(-20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes backgroundPan {
+        0% { background-position: 0% center; }
+        100% { background-position: 200% center; }
+    }
+    body {
+      background: #080808;
+      background-image: linear-gradient(120deg, #080808 0%, #121212 50%, #080808 100%);
+      background-size: 200% 100%;
+      animation: backgroundPan 45s linear infinite;
+      color: #999999;
+      font-family: 'Roboto Mono', monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      box-sizing: border-box;
+      text-align: center;
+      overflow-x: hidden;
+    }
+    .container {
+      background: rgba(18, 18, 18, 0.9);
+      backdrop-filter: blur(8px);
+      padding: 3rem 4rem;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 0 1px rgba(50, 50, 50, 0.5);
+      max-width: 900px;
+      width: 90%;
+      animation: fadeInDown 1s ease-out forwards;
+      border: 1px solid #282828;
+    }
+    h1 {
+      font-family: 'Orbitron', sans-serif;
+      color: #cccccc;
+      font-size: 3rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 1px;
+      animation: fadeInDown 0.8s ease-out 0.2s forwards;
+      opacity: 0;
+      text-shadow: 0 0 8px rgba(200, 200, 200, 0.15);
+    }
+    p {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      margin-bottom: 1.5rem;
+      animation: fadeInUp 1s ease-out 0.4s forwards;
+      opacity: 0;
+    }
+    .api-info {
+      margin-bottom: 2.5rem;
+      font-size: 1rem;
+      color: #bbbbbb;
+      animation: fadeInUp 1s ease-out 0.6s forwards;
+      opacity: 0;
+    }
+    a {
+      color: #888888;
+      text-decoration: none;
+      transition: color 0.3s ease, text-shadow 0.3s ease;
+      font-weight: 500;
+    }
+    a:hover {
+      color: #aaaaaa;
+      text-shadow: 0 0 8px rgba(170, 170, 170, 0.3);
+    }
+    .instructions {
+      background: rgba(10, 10, 10, 0.8);
+      padding: 1.5rem 2rem;
+      border-radius: 10px;
+      margin-top: 2rem;
+      border-left: 4px solid #444444;
+      text-align: left;
+      animation: fadeInUp 1s ease-out 0.8s forwards;
+      opacity: 0;
+    }
+    .instructions p, .instructions ul li {
+        color: #bbbbbb;
+        font-size: 1rem;
+        margin-bottom: 0.8rem;
+        line-height: 1.6;
+    }
+    .instructions ul {
+        padding-left: 20px;
+        margin-top: 0.5rem;
+    }
+    .example-path {
+        font-family: 'Roboto Mono', monospace;
+        background-color: #101010;
+        color: #999999;
+        padding: 0.3em 0.6em;
+        border-radius: 5px;
+        font-weight: 500;
+        border: 1px solid #303030;
+    }
+    .footer-link {
+        margin-top: 3rem;
+        font-size: 0.9rem;
+        color: #777777;
+        animation: fadeInUp 1s ease-out 1s forwards;
+        opacity: 0;
+    }
+    .footer-link a {
+        font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>API Data Explorer</h1>
+    <p>Explore live JSON responses from the <a href="https://api.bgsi.gg" target="_blank" rel="noopener noreferrer">BGSI.GG API</a> or view proxied images.</p>
+    <div class="api-info">
+      <p>This interface allows you to directly proxy API requests and view data, or proxy images from the target domain.
+      To fetch API data, modify the URL by appending the API path you wish to query after <code class="example-path">/api/</code>.
+      To view an image, use its path directly (e.g., <code class="example-path">/items/image.png</code>).</p>
+    </div>
+    <div class="instructions">
+        <p><strong>How to use:</strong></p>
+        <p>1. <strong>API Data:</strong> To access data from <code class="example-path">/api/some/endpoint</code> on the target API, navigate to:</p>
+        <p><a href="/api/some/endpoint">http://127.0.0.1:3000/api/some/endpoint</a></p>
+        <p>2. <strong>Images:</strong> To view an image like <code class="example-path">/items/fire-basilisk.png</code> from the target domain, navigate to:</p>
+        <p><a href="/items/fire-basilisk.png">http://127.0.0.1:3000/items/fire-basilisk.png</a></p>
+        <p>   Or for an image at root like <code class="example-path">/Logo.png</code>:</p>
+        <p><a href="/Logo.png">http://127.0.0.1:3000/Logo.png</a></p>
+        <p>3. Query parameters work for API paths: <code class="example-path">/api/v1/data?type=example</code></p>
+    </div>
+    <p class="footer-link">View data and images from <a href="https://www.bgsi.gg" target="_blank" rel="noopener noreferrer">www.bgsi.gg</a>.</p>
+  </div>
+</body>
+</html>
+""")
 
 API_BASE_URL = "https://api.bgsi.gg"
 IMAGE_BASE_URL = "https://www.bgsi.gg"
 IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico")
-ASSETS = ["Coin.png", "gem.png", "bubble.png", "Hero_Logo.png", "Logo.png"]
-ADMIN_PASSWORD = "flux"
 
 COMMON_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     "Origin": API_BASE_URL,
 }
 
-RARITY_COLORS = {
-    "Secret": "radial-gradient(ellipse at center, #FF416C 0%, #FF4B2B 100%)",
-    "Legendary": "radial-gradient(ellipse at center, #F7971E 0%, #FFD200 100%)",
-    "Epic": "radial-gradient(ellipse at center, #8A2387 0%, #E94057 50%, #F27121 100%)",
-    "Rare": "radial-gradient(ellipse at center, #2193b0 0%, #6dd5ed 100%)",
-    "Unique": "radial-gradient(ellipse at center, #11998e 0%, #38ef7d 100%)",
-    "Common": "radial-gradient(ellipse at center, #636363 0%, #a2ab58 100%)"
-}
+def generate_api_response_html(json_data_str: str, page_title: str, og_description: str, og_image_url: str, og_url: str) -> str:
+    escaped_page_title = html.escape(page_title)
+    escaped_og_description = html.escape(og_description)
+    escaped_og_image_url = html.escape(og_image_url)
+    escaped_og_url = html.escape(og_url)
+    escaped_json_data_str = html.escape(json_data_str)
 
-TREND_STYLES = {
-    "rising": ("#38ef7d", '<i class="fas fa-arrow-trend-up"></i>'),
-    "falling": ("#FF416C", '<i class="fas fa-arrow-trend-down"></i>'),
-    "stable": ("#6dd5ed", '<i class="fas fa-minus"></i>'),
-    "unstable": ("#F7971E", '<i class="fas fa-bolt"></i>')
-}
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{escaped_page_title}</title>
+  <meta name="description" content="{escaped_og_description}">
+  <meta name="theme-color" content="#080808">
 
-def format_value(value):
-    if isinstance(value, int):
-        return f"{value:,}"
-    return html.escape(str(value))
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{escaped_og_url}">
+  <meta property="og:title" content="{escaped_page_title}">
+  <meta property="og:description" content="{escaped_og_description}">
+  <meta property="og:image" content="{escaped_og_image_url}">
 
-def format_timestamp(ts_str):
-    try:
-        dt = datetime.fromisoformat(ts_str.replace('Z', '+00:00'))
-        return dt.strftime('%b %d, %Y, %I:%M %p UTC')
-    except (ValueError, TypeError):
-        return ts_str
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="{escaped_og_url}">
+  <meta property="twitter:title" content="{escaped_page_title}">
+  <meta property="twitter:description" content="{escaped_og_description}">
+  <meta property="twitter:image" content="{escaped_og_image_url}">
+
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; padding: 2rem; margin: 0; }}
+    pre {{ background-color: #161616; color: #d0d0d0; padding: 2rem; border-radius: 10px; border: 1px solid #2a2a2a; box-shadow: 0 6px 20px rgba(0,0,0,0.6); white-space: pre; overflow-x: auto; font-size: 0.875rem; }}
+  </style>
+</head>
+<body>
+  <pre>{escaped_json_data_str}</pre>
+</body>
+</html>
+"""
 
 def create_error_html_response(title: str, message: str, status_code: int, details: str = "", guidance_html: str = ""):
     escaped_title = html.escape(title)
     escaped_message = html.escape(message)
     escaped_details = html.escape(details)
-    details_html = "<pre>{}</pre>".format(escaped_details) if escaped_details else ""
-    error_template = """
-    <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{title}</title>
+    
+    error_page_content = f"""
+    <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{escaped_title}</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Orbitron:wght@700&display=swap" rel="stylesheet">
     <style>
         body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; padding: 2rem; margin:0; display: flex; flex-direction: column; align-items: center; justify-content:center; min-height: 90vh; text-align: center; }}
@@ -63,294 +241,218 @@ def create_error_html_response(title: str, message: str, status_code: int, detai
         p {{ font-size: 1.1rem; line-height: 1.6; color: #aaaaaa; }}
         pre {{ background-color: #0a0a0a; color: #b0b0b0; padding: 1rem; border-radius: 5px; border: 1px solid #222222; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; text-align: left; font-size: 0.85rem;}}
         .guidance {{ margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #333333; text-align: left; color: #bbbbbb; }}
+        .guidance p, .guidance ul li {{ font-size: 1rem; margin-bottom: 0.7rem; }}
+        .guidance ul {{ list-style-type: square; padding-left: 20px; }}
+        .guidance a {{ color: #888888; text-decoration: none; font-weight: bold;}}
+        .guidance a:hover {{ color: #aaaaaa; }}
+        .example-path {{ font-family: 'Roboto Mono', monospace; background-color: #101010; color: #999999; padding: 0.2em 0.5em; border-radius: 4px; border: 1px solid #303030;}}
     </style></head>
-    <body><div class="error-container"><h1>{title}</h1><p>{message}</p>{details_html}{guidance_html}</div></body></html>
+    <body><div class="error-container"><h1>{escaped_title}</h1>
+    <p>{escaped_message}</p>
+    {f"<pre>{escaped_details}</pre>" if escaped_details else ""}
+    {guidance_html if guidance_html else ""}
+    </div></body></html>
     """
-    return HTMLResponse(content=error_template.format(title=escaped_title, message=escaped_message, details_html=details_html, guidance_html=guidance_html), status_code=status_code)
-
-def generate_item_page_html(data: dict, request: Request) -> str:
-    pet = data.get("pet", {})
-    base_url = str(request.base_url).rstrip('/')
-    og_image_url = "{}{}".format(IMAGE_BASE_URL, pet.get('image', '')) if pet.get('image') else "{}/Logo.png".format(base_url)
-    og_title = html.escape(pet.get("name", "BGSI Item"))
-    og_description = html.escape(pet.get("description", "No description available."))
-    og_url = html.escape(str(request.url))
-    rarity_style = RARITY_COLORS.get(pet.get("rarity"), "none")
-    trend_color, trend_symbol = TREND_STYLES.get(pet.get("trend"), ("#999", '<i class="fas fa-question"></i>'))
-
-    stats_html = ""
-    if pet.get("stats"):
-        stats = pet["stats"]
-        stats_html = """
-            <div class="stat-item"><img src="{base_url}/bubble.png" alt="Bubbles">Bubbles: <span>{bubbles}</span></div>
-            <div class="stat-item"><img src="{base_url}/Coin.png" alt="Coins">Coins: <span>{coins}</span></div>
-            <div class="stat-item"><img src="{base_url}/gem.png" alt="Gems">Gems: <span>{gems}</span></div>
-        """.format(base_url=base_url, bubbles=format_value(stats.get('bubbles', 0)), coins=format_value(stats.get('coins', 0)), gems=format_value(stats.get('gems', 0)))
-
-    variants_html = ""
-    if pet.get("allVariants"):
-        for variant in pet["allVariants"]:
-            if variant.get("slug") != pet.get("slug"):
-                variants_html += """
-                    <a href="/api/items/{slug}" class="variant-card">
-                        <img src="{image_base}{image_path}" alt="{name}">
-                        <div class="variant-name">{name}</div>
-                    </a>""".format(slug=variant.get('slug', ''), image_base=IMAGE_BASE_URL, image_path=variant.get('image'), name=html.escape(variant.get('name', '')))
-    
-    history_rows = "".join(["<tr><td>{}</td><td>{}</td></tr>".format(format_timestamp(h.get('timestamp')), format_value(h.get('value'))) for h in data.get("history", [])])
-    exist_history_rows = "".join(["<tr><td>{}</td><td>{}</td></tr>".format(format_timestamp(h.get('timestamp')), h.get('existAmount')) for h in data.get("existHistories", [])])
-    recent_hatches_rows = "".join(["<tr><td>{}</td><td>{}</td></tr>".format(format_timestamp(h.get('timestamp')), html.escape(h.get('playerName') or 'Private')) for h in data.get("recentHatches", [])])
-    
-    variants_button_html = '<button class="tab-button" onclick="openTab(event, \'variants\')">Variants</button>' if variants_html else ''
-    
-    page_template = """
-    <!DOCTYPE html><html lang="en"><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{og_title}</title>
-    <meta name="description" content="{og_description}"><meta name="theme-color" content="#080808">
-    <meta property="og:type" content="website"><meta property="og:url" content="{og_url}"><meta property="og:title" content="{og_title}"><meta property="og:description" content="{og_description}"><meta property="og:image" content="{og_image_url}">
-    <meta property="twitter:card" content="summary_large_image"><meta property="twitter:url" content="{og_url}"><meta property="twitter:title" content="{og_title}"><meta property="twitter:description" content="{og_description}"><meta property="twitter:image" content="{og_image_url}">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        body {{ font-family: 'Roboto Mono', monospace; background: #080808 linear-gradient(120deg, #080808 0%, #121212 50%, #080808 100%); color: #ccc; margin: 0; padding: 2rem; }}
-        .container {{ max-width: 1200px; margin: auto; background: rgba(18,18,18,0.8); backdrop-filter: blur(10px); border-radius: 15px; border: 1px solid #282828; box-shadow: 0 10px 30px rgba(0,0,0,0.7); overflow: hidden; }}
-        .main-grid {{ display: grid; grid-template-columns: 350px 1fr; gap: 2rem; padding: 2rem; }}
-        .left-panel, .right-panel {{ display: flex; flex-direction: column; gap: 1.5rem; }}
-        .pet-card {{ background: #1c1c1c; border-radius: 10px; padding: 1.5rem; text-align: center; border: 1px solid #333; }}
-        .pet-name {{ font-family: 'Orbitron', sans-serif; font-size: 2rem; margin: 1rem 0 0.5rem 0; color: #fff; }}
-        .pet-image {{ max-width: 100%; height: auto; border-radius: 10px; background: rgba(0,0,0,0.2); }}
-        .pet-rarity {{ display: inline-block; padding: 0.4rem 1rem; border-radius: 20px; font-weight: 700; color: white; background: {rarity_style}; margin-bottom: 1rem; font-size: 0.9rem; }}
-        .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: left; }}
-        .info-item {{ background: #222; padding: 0.8rem; border-radius: 8px; }}
-        .label {{ color: #888; font-size: 0.8rem; display: block; margin-bottom: 0.25rem; }}
-        .value {{ color: #eee; font-weight: 700; font-size: 1rem; }}
-        .value.trend {{ color: {trend_color}; }}
-        .stats-box, .desc-box {{ background: #1c1c1c; border-radius: 10px; padding: 1.5rem; border: 1px solid #333; }}
-        h2 {{ font-family: 'Orbitron', sans-serif; color: #eee; border-bottom: 2px solid #444; padding-bottom: 0.5rem; margin-top: 0; }}
-        .stat-item {{ display: flex; align-items: center; gap: 0.75rem; font-size: 1.1rem; margin-bottom: 0.5rem; }}
-        .stat-item img {{ width: 24px; height: 24px; }} .stat-item span {{ font-weight: 700; color: #fff; }}
-        .desc-box p {{ line-height: 1.7; color: #bbb; margin: 0; }}
-        .tabs {{ display: flex; border-bottom: 1px solid #333; }}
-        .tab-button {{ background: none; border: none; color: #888; padding: 1rem 1.5rem; cursor: pointer; font-family: 'Orbitron', sans-serif; font-size: 1rem; }}
-        .tab-button.active {{ color: #fff; border-bottom: 3px solid #F7971E; }}
-        .tab-content {{ display: none; padding: 1.5rem; }} .tab-content.active {{ display: block; }}
-        .table-container {{ max-height: 400px; overflow-y: auto; }}
-        .history-table {{ width: 100%; border-collapse: collapse; }}
-        th, td {{ padding: 0.8rem 1rem; text-align: left; border-bottom: 1px solid #333; }}
-        th {{ color: #aaa; }}
-        .variants-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }}
-        .variant-card {{ background: #222; border-radius: 8px; padding: 1rem; text-decoration: none; color: #ccc; transition: all 0.3s ease; text-align: center; }}
-        .variant-card:hover {{ transform: translateY(-5px); background: #333; }}
-        .variant-card img {{ width: 100px; height: 100px; margin-bottom: 0.5rem; }}
-        .json-viewer {{ position: relative; }}
-        .json-blur-overlay {{ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; transition: opacity 0.3s; }}
-        .json-blur-overlay .fa-lock {{ font-size: 4rem; color: rgba(255,255,255,0.5); }}
-        pre {{ background-color: #101010; padding: 1rem; border-radius: 10px; border: 1px solid #2a2a2a; white-space: pre-wrap; font-size: 0.875rem; max-height: 500px; }}
-        .footer {{ text-align: center; padding: 1rem; font-size: 0.9rem; color: #777; }}
-        a {{ color: #6dd5ed; text-decoration: none; }}
-    </style></head><body>
-    <div class="container">
-    <div class="main-grid">
-    <div class="left-panel">
-    <div class="pet-card">
-        <img class="pet-image" src="{og_image_url}" alt="{og_title}"><h1 class="pet-name">{og_title}</h1>
-        <div class="pet-rarity">{rarity}</div>
-        <div class="info-grid">
-        <div class="info-item"><span class="label">Value</span><span class="value">{value}</span></div>
-        <div class="info-item"><span class="label">Demand</span><span class="value">{demand}</span></div>
-        <div class="info-item"><span class="label">Trend</span><span class="value trend">{trend_symbol} {trend}</span></div>
-        <div class="info-item"><span class="label">Exists</span><span class="value">{owners}</span></div>
-        </div></div>
-    <div class="stats-box"><h2>Base Stats</h2>{stats_html}</div></div>
-    <div class="right-panel">
-    <div class="desc-box"><h2>Description</h2><p>{og_description}</p></div>
-    <div class="tabs">
-        <button class="tab-button active" onclick="openTab(event, 'history')">Value History</button>
-        <button class="tab-button" onclick="openTab(event, 'exist-history')">Exist History</button>
-        <button class="tab-button" onclick="openTab(event, 'recent-hatches')">Recent Hatches</button>
-        {variants_button_html}
-        <button class="tab-button" onclick="openTab(event, 'raw-json')">Raw JSON</button>
-    </div>
-    <div id="history" class="tab-content active"><div class="table-container"><table class="history-table"><tr><th>Date</th><th>Value</th></tr>{history_rows}</table></div></div>
-    <div id="exist-history" class="tab-content"><div class="table-container"><table class="history-table"><tr><th>Date</th><th>Amount</th></tr>{exist_history_rows}</table></div></div>
-    <div id="recent-hatches" class="tab-content"><div class="table-container"><table class="history-table"><tr><th>Date</th><th>Player</th></tr>{recent_hatches_rows}</table></div></div>
-    <div id="variants" class="tab-content"><div class="variants-grid">{variants_html}</div></div>
-    <div id="raw-json" class="tab-content"><div class="json-viewer">
-        <div id="json-blur" class="json-blur-overlay" onclick="showJson()"><i class="fas fa-lock"></i></div>
-        <pre>{escaped_json}</pre></div></div></div></div>
-    <div class="footer">Data from <a href="https://bgsi.gg" target="_blank">BGSI.GG</a> | Viewer by 1cy</div></div>
-    <script>
-        function openTab(evt, tabName) {{
-            var i, tabcontent, tablinks;
-            tabcontent = document.getElementsByClassName("tab-content");
-            for (i = 0; i < tabcontent.length; i++) {{ tabcontent[i].style.display = "none"; }}
-            tablinks = document.getElementsByClassName("tab-button");
-            for (i = 0; i < tablinks.length; i++) {{ tablinks[i].classList.remove("active"); }}
-            document.getElementById(tabName).style.display = "block";
-            evt.currentTarget.classList.add("active");
-        }}
-        document.getElementsByClassName("tab-button")[0].click();
-        function showJson() {{
-            const overlay = document.getElementById('json-blur');
-            if (!overlay.style.display || overlay.style.display !== 'none') {{
-                const password = prompt("Enter admin password to view raw JSON:");
-                if (password === "{admin_password}") {{
-                    overlay.style.display = 'none';
-                }} else if (password !== null) {{
-                    alert("Incorrect password.");
-                }}
-            }}
-        }}
-    </script></body></html>
-    """
-    return page_template.format(og_title=og_title, og_description=og_description, og_url=og_url, og_image_url=og_image_url, rarity_style=rarity_style, trend_color=trend_color, trend_symbol=trend_symbol, stats_html=stats_html, variants_button_html=variants_button_html, variants_html=variants_html, history_rows=history_rows, exist_history_rows=exist_history_rows, recent_hatches_rows=recent_hatches_rows, escaped_json=html.escape(json.dumps(data, indent=2)), rarity=html.escape(pet.get("rarity", '')), value=format_value(pet.get("value")), demand=html.escape(pet.get("demand", 'N/A')).title(), trend=html.escape(pet.get("trend", 'N/A')).title(), owners=format_value(pet.get("owners", 0)), admin_password=ADMIN_PASSWORD)
-
-def generate_stats_page_html(data: dict, request: Request) -> str:
-    base_url = str(request.base_url).rstrip('/')
-    page_template = """
-    <!DOCTYPE html><html lang="en"><head>
-    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>BGSI.GG Global Stats</title>
-    <meta name="description" content="Live global statistics from the BGSI.GG API."><meta property="og:title" content="BGSI.GG Global Stats"><meta property="og:description" content="Live global statistics from the BGSI.GG API."><meta property="og:url" content="{og_url}"><meta property="og:image" content="{base_url}/Logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        body {{ font-family: 'Roboto Mono', monospace; background: #080808 linear-gradient(120deg, #080808 0%, #121212 50%, #080808 100%); color: #ccc; margin: 0; padding: 2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }}
-        h1 {{ font-family: 'Orbitron', sans-serif; font-size: 3rem; color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.2); }}
-        .stats-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; width: 100%; max-width: 1200px; margin-top: 2rem; }}
-        .stat-card {{ background: rgba(28,28,28,0.8); backdrop-filter: blur(8px); border: 1px solid #333; border-radius: 10px; padding: 2rem; text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,0.5); }}
-        .stat-card h2 {{ font-family: 'Orbitron', sans-serif; font-size: 1.5rem; margin: 0 0 1rem 0; color: #aaa; }}
-        .stat-card .value {{ font-size: 2.5rem; font-weight: 700; color: #fff; background-image: linear-gradient(45deg, #FF416C, #FFD200); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
-        .footer {{ text-align: center; padding: 2rem; font-size: 0.9rem; color: #777; position: absolute; bottom: 0; width: 100%; }} a {{ color: #6dd5ed; }}
-    </style></head><body>
-    <h1>Global Stats</h1>
-    <div class="stats-grid">
-        <div class="stat-card"><h2>Users Online</h2><p class="value">{users_online}</p></div>
-        <div class="stat-card"><h2>Secrets Hatched (24h)</h2><p class="value">{hatches}</p></div>
-        <div class="stat-card"><h2>Total Pet Types</h2><p class="value">{total_pets}</p></div>
-        <div class="stat-card"><h2>Total Pets Existing</h2><p class="value">{total_exists}</p></div>
-    </div>
-    <div class="footer">Data from <a href="https://bgsi.gg" target="_blank">BGSI.GG</a> | Viewer by 1cy</div>
-    </body></html>""".format(og_url=html.escape(str(request.url)), base_url=base_url, users_online=format_value(data.get('usersOnline', 0)), hatches=format_value(data.get('secretHatches24h', 0)), total_pets=format_value(data.get('totalPets', 0)), total_exists=format_value(data.get('totalExists', 0)))
-    return page_template
-
-def generate_eggs_page_html(data: dict, request: Request) -> str:
-    base_url = str(request.base_url).rstrip('/')
-    currency_icons = {"Coins": "{}/Coin.png".format(base_url), "Tickets": "{}/Hero_Logo.png".format(base_url), "Seashells": "{}/bubble.png".format(base_url)}
-    eggs_html = ""
-    for egg in data.get("eggs", []):
-        pets_html = "".join(['''
-            <div class="pet-item">
-                <img src="{image_base}{image_path}" alt="{name}" loading="lazy">
-                <div class="pet-info">
-                    <span class="pet-name">{name}</span>
-                    <span class="pet-rarity" style="background: {rarity_color};">{rarity}</span>
-                    <span class="pet-chance">{chance}%</span>
-                </div></div>'''.format(image_base=IMAGE_BASE_URL, image_path=pet.get('image'), name=html.escape(pet.get('name', '')), rarity_color=RARITY_COLORS.get(pet.get('rarity'), '#666'), rarity=html.escape(pet.get('rarity', '')), chance=pet.get('chance', 0)) for pet in egg.get("pets", [])])
-        
-        currency_icon_url = currency_icons.get(egg.get("currency"), "")
-        currency_icon_html = '<img src="{}" class="currency-icon" alt="{}">'.format(currency_icon_url, egg.get("currency")) if currency_icon_url else ""
-        eggs_html += '''
-            <div class="egg-card">
-                <div class="egg-header">
-                    <img class="egg-image" src="{image_base}{image_path}" alt="{name}">
-                    <div class="egg-title">
-                        <h2>{name}</h2>
-                        <div class="egg-price">{currency_icon}{price}</div>
-                        <div class="egg-location">{location}</div>
-                    </div></div><div class="pets-grid">{pets}</div></div>
-        '''.format(image_base=IMAGE_BASE_URL, image_path=egg.get('image'), name=html.escape(egg.get('name', '')), currency_icon=currency_icon_html, price=format_value(egg.get('price', 0)), location=html.escape(egg.get('location', '')), pets=pets_html)
-
-    return """
-    <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>BGSI.GG Eggs</title>
-    <meta name="description" content="Details of all eggs available in BGSI.GG."><meta property="og:title" content="BGSI.GG Eggs"><meta property="og:description" content="Details of all eggs available in BGSI.GG."><meta property="og:url" content="{og_url}"><meta property="og:image" content="{base_url}/Logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        body {{ font-family: 'Roboto Mono', monospace; background: #080808 linear-gradient(120deg, #080808 0%, #121212 50%, #080808 100%); color: #ccc; margin: 0; padding: 2rem; }}
-        h1 {{ font-family: 'Orbitron', sans-serif; font-size: 3rem; color: #fff; text-align: center; }}
-        .eggs-container {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 1.5rem; max-width: 1800px; margin: 2rem auto; }}
-        .egg-card {{ background: #1c1c1c; border: 1px solid #333; border-radius: 10px; overflow: hidden; }}
-        .egg-header {{ display: flex; align-items: center; gap: 1rem; padding: 1rem; background: #222; }}
-        .egg-image {{ width: 80px; height: 80px; }}
-        .egg-title h2 {{ font-family: 'Orbitron', sans-serif; margin: 0; font-size: 1.5rem; color: #eee; }}
-        .egg-price {{ font-size: 1.1rem; color: #fff; font-weight: bold; display: flex; align-items: center; gap: 0.5rem; }}
-        .currency-icon {{ width: 20px; height: 20px; }}
-        .egg-location {{ font-size: 0.9rem; color: #888; }}
-        .pets-grid {{ padding: 1rem; display: grid; grid-template-columns: 1fr; gap: 0.5rem; }}
-        .pet-item {{ display: flex; align-items: center; gap: 1rem; background: #2a2a2a; padding: 0.5rem; border-radius: 5px; }}
-        .pet-item img {{ width: 40px; height: 40px; }}
-        .pet-info {{ display: flex; justify-content: space-between; align-items: center; width: 100%; }}
-        .pet-rarity {{ font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 10px; color: white; font-weight: bold; }}
-        .footer {{ text-align: center; padding: 2rem; font-size: 0.9rem; color: #777; }} a {{ color: #6dd5ed; }}
-    </style></head><body>
-    <h1>All Eggs</h1><div class="eggs-container">{eggs_html}</div>
-    <div class="footer">Data from <a href="https://bgsi.gg" target="_blank">BGSI.GG</a> | Viewer by 1cy</div>
-    </body></html>""".format(og_url=html.escape(str(request.url)), base_url=base_url, eggs_html=eggs_html)
+    return HTMLResponse(content=error_page_content, status_code=status_code)
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return HTMLResponse(content="""
-    <!DOCTYPE html><html lang="en">
-    <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>BGSI.GG API Explorer</title>
-    <meta name="description" content="Explore live data from the BGSI.GG API with a rich visual interface."><meta name="theme-color" content="#080808">
-    <meta property="og:title" content="BGSI.GG API Explorer"><meta property="og:description" content="Explore live data from the BGSI.GG API with a rich visual interface."><meta property="og:image" content="/Logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-    body {{ background: #080808 linear-gradient(120deg, #080808 0%, #121212 50%, #080808 100%); color: #999; font-family: 'Roboto Mono', monospace; margin: 0; padding: 2rem; display: flex; align-items: center; justify-content: center; min-height: 100vh; text-align: center; }}
-    .container {{ background: rgba(18, 18, 18, 0.9); backdrop-filter: blur(8px); padding: 3rem 4rem; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.7); border: 1px solid #282828; max-width: 900px; width: 90%; }}
-    h1 {{ font-family: 'Orbitron', sans-serif; color: #ccc; font-size: 3rem; margin-bottom: 1.5rem; }} p {{ font-size: 1.1rem; }}
-    .instructions {{ background: rgba(10, 10, 10, 0.8); padding: 1.5rem 2rem; border-radius: 10px; margin-top: 2rem; border-left: 4px solid #444; text-align: left; }}
-    ul {{ list-style: none; padding: 0; }} li {{ margin-bottom: 1rem; }} a {{ color: #6dd5ed; text-decoration: none; }}
-    .footer-link {{ margin-top: 3rem; font-size: 0.9rem; color: #777; }}
-    </style></head><body>
-    <div class="container"><h1>API Data Explorer</h1><p>Explore live data from the <a href="https://api.bgsi.gg" target="_blank">BGSI.GG API</a>.</p>
-    <div class="instructions"><p><strong>Examples:</strong></p>
-    <ul><li><b>Item Details:</b> <a href="/api/items/mythic-easter-basket">/api/items/mythic-easter-basket</a></li>
-    <li><b>Global Stats:</b> <a href="/api/stats">/api/stats</a></li><li><b>All Eggs:</b> <a href="/api/eggs">/api/eggs</a></li></ul></div>
-    <p class="footer-link">Viewer by 1cy | Data from <a href="https://www.bgsi.gg" target="_blank">www.bgsi.gg</a>.</p>
-    </div></body></html>""")
+    return INDEX_HTML.substitute()
 
 @app.get("/api/{path:path}", response_class=HTMLResponse)
 async def proxy_api(path: str, request: Request):
     query = str(request.query_params)
-    target_url = "{}/api/{}".format(API_BASE_URL, path) + ("?{}".format(query) if query else "")
+    target_url = f"{API_BASE_URL}/api/{path}"
+    if query:
+        target_url += f"?{query}"
+
+    api_headers = {
+        **COMMON_HEADERS,
+        "Accept": "application/json, text/plain, */*",
+        "Referer": f"{API_BASE_URL}/",
+    }
+
     try:
-        async with httpx.AsyncClient(headers=COMMON_HEADERS, follow_redirects=True) as client:
+        async with httpx.AsyncClient(headers=api_headers, follow_redirects=True) as client:
             response = await client.get(target_url)
             response.raise_for_status()
-            json_data_obj = response.json()
-
-            path_prefix = path.split('/')[0]
-            if path_prefix == "items" and "pet" in json_data_obj:
-                return HTMLResponse(content=generate_item_page_html(json_data_obj, request))
-            elif path == "stats" and "usersOnline" in json_data_obj:
-                return HTMLResponse(content=generate_stats_page_html(json_data_obj, request))
-            elif path == "eggs" and "eggs" in json_data_obj:
-                return HTMLResponse(content=generate_eggs_page_html(json_data_obj, request))
             
-            return HTMLResponse(content="<pre>{}</pre>".format(html.escape(json.dumps(json_data_obj, indent=2))))
+            json_data_obj = {}
+            pretty_json_str = response.text
+            content_type = response.headers.get("content-type", "")
+
+            if "application/json" in content_type:
+                try:
+                    json_data_obj = response.json()
+                    pretty_json_str = json.dumps(json_data_obj, indent=2, sort_keys=True)
+                except json.JSONDecodeError:
+                    pass # Keep pretty_json_str as response.text if not valid JSON
+
+            og_page_title = f"{path.replace('/', ' ').title()} - BGSI.GG Data"
+            og_description = f"Live data for {path} from the BGSI.GG API, via API Explorer."
+            og_image_url = f"{str(request.base_url).rstrip('/')}/Logo.png" # Default image
+            og_url = str(request.url)
+
+            if path.startswith("items/") and isinstance(json_data_obj, dict):
+                item_slug_from_path = path.split('/')[-1]
+                pet_data_root = json_data_obj.get("pet")
+                target_variant_data_for_og = None
+
+                if isinstance(pet_data_root, dict):
+                    if pet_data_root.get("slug") == item_slug_from_path:
+                        target_variant_data_for_og = pet_data_root
+                    
+                    if isinstance(pet_data_root.get("allVariants"), list):
+                        for variant_in_list in pet_data_root["allVariants"]:
+                            if isinstance(variant_in_list, dict) and variant_in_list.get("slug") == item_slug_from_path:
+                                target_variant_data_for_og = variant_in_list 
+                                break
+                    
+                    if target_variant_data_for_og is None : # Fallback if no exact slug match from variants or root
+                        target_variant_data_for_og = pet_data_root
+
+
+                    if target_variant_data_for_og and isinstance(target_variant_data_for_og, dict):
+                        og_page_title = target_variant_data_for_og.get("name", og_page_title)
+                        og_description = target_variant_data_for_og.get("description", f"Details for {og_page_title}.")
+                        pet_image_path_suffix = target_variant_data_for_og.get("image")
+                        if pet_image_path_suffix:
+                            og_image_url = f"{IMAGE_BASE_URL}{pet_image_path_suffix}"
+            
+            elif path == "stats" and isinstance(json_data_obj, dict) : # Specific handling for /api/stats
+                og_page_title = "BGSI.GG API Statistics"
+                og_description = "Live global statistics and counts from the BGSI.GG API."
+                # og_image_url and og_url remain default.
+            
+            html_content = generate_api_response_html(
+                json_data_str=pretty_json_str,
+                page_title=og_page_title,
+                og_description=og_description,
+                og_image_url=og_image_url,
+                og_url=og_url
+            )
+            return HTMLResponse(content=html_content)
 
     except httpx.HTTPStatusError as e:
-        return create_error_html_response("API Error: {}".format(e.response.status_code), "Error fetching from: {}".format(html.escape(target_url)), e.response.status_code, "Reason: {}\nResponse: {}".format(e.response.reason_phrase, e.response.text))
-    except (httpx.RequestError, json.JSONDecodeError) as e:
-        return create_error_html_response("API Connection/Parsing Error", "Could not connect or parse data from: {}".format(html.escape(target_url)), 503, str(e))
+        return create_error_html_response(
+            title=f"API Error: {e.response.status_code}",
+            message=f"Error fetching API data from: {html.escape(target_url)}.",
+            status_code=e.response.status_code,
+            details=f"Reason: {e.response.reason_phrase}\nResponse: {e.response.text}"
+        )
+    except httpx.RequestError as e:
+        return create_error_html_response(
+            title="API Connection Error",
+            message=f"Could not connect to API endpoint: {html.escape(target_url)}.",
+            status_code=503,
+            details=str(e)
+        )
+    except json.JSONDecodeError as e_json:
+        # This case should be less frequent now as we try to parse and fallback
+        raw_text = response.text if 'response' in locals() and hasattr(response, 'text') else 'N/A'
+        return create_error_html_response(
+            title="API Response Parsing Error",
+            message="Failed to parse JSON response from the API (or it was not JSON).",
+            status_code=502,
+            details=f"Error: {e_json.msg if hasattr(e_json, 'msg') else str(e_json)}\n\nRaw Response Text (may be truncated):\n{raw_text[:1000]}"
+        )
     except Exception as e:
-        return create_error_html_response("Unexpected API Error", "An unexpected error occurred.", 500, str(e))
+        return create_error_html_response(
+            title="Unexpected API Error",
+            message="An unexpected error occurred while proxying the API request.",
+            status_code=500,
+            details=str(e)
+        )
 
 @app.get("/{item_path:path}")
-async def proxy_image_or_not_found(item_path: str):
-    if not (item_path.lower().endswith(IMAGE_EXTENSIONS) or item_path in ASSETS):
-        guidance = '''<div class="guidance"><p>The path requested was: <code>{path}</code></p><p>API paths must start with <code>/api/</code>.</p><p>Return to the <a href="/">API Explorer Home Page</a>.</p></div>'''.format(path=html.escape(item_path))
-        return create_error_html_response("Resource Not Found", "The requested path is not a recognized image or API route.", 404, guidance_html=guidance)
+async def proxy_image_or_not_found(item_path: str, request: Request):
+    # Allow favicon.ico specifically, otherwise check extensions
+    is_image_path = item_path.lower().endswith(IMAGE_EXTENSIONS)
+    is_favicon = item_path.lower() == "favicon.ico"
 
-    target_url = "{}/{}".format(IMAGE_BASE_URL, item_path)
-    headers = {**COMMON_HEADERS, "Accept": "image/*", "Referer": "{}/".format(IMAGE_BASE_URL)}
+    if not (is_image_path or is_favicon):
+        not_found_guidance = f"""
+        <div class="guidance">
+            <p>If you were trying to access an image or a specific resource:</p>
+            <ul>
+                <li>Please verify the URL path for any typos. The path requested was: <code class="example-path">{html.escape(item_path)}</code></li>
+                <li>Ensure the path corresponds to an existing resource on <a href="{IMAGE_BASE_URL}" target="_blank">{IMAGE_BASE_URL}</a>.</li>
+                <li>Image paths usually end with an extension like <code class="example-path">.png</code>, <code class="example-path">.jpg</code>, etc.</li>
+                <li>Example of a correct image path: <a href="/items/fire-basilisk.png">/items/fire-basilisk.png</a></li>
+            </ul>
+            <p>If you were trying to access API data (JSON):</p>
+            <ul>
+                <li>API paths must start with <code class="example-path">/api/</code>.</li>
+                <li>Example of an API path: <a href="/api/example/data">/api/example/data</a></li>
+            </ul>
+            <p>You can return to the <a href="/">API Explorer Home Page</a> to start over.</p>
+        </div>
+        """
+        return create_error_html_response(
+            title="Resource Not Found",
+            message=f"The resource at path '/{html.escape(item_path)}' was not found or is not a recognized image type.",
+            status_code=404,
+            guidance_html=not_found_guidance
+        )
+
+    target_url = f"{IMAGE_BASE_URL}/{item_path}"
+    
+    image_headers = {
+        **COMMON_HEADERS,
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        "Referer": f"{IMAGE_BASE_URL}/",
+    }
+
     try:
-        async with httpx.AsyncClient(headers=headers, follow_redirects=True) as client:
+        async with httpx.AsyncClient(headers=image_headers, follow_redirects=True) as client:
             response = await client.get(target_url)
             response.raise_for_status()
-            return StreamingResponse(io.BytesIO(response.content), media_type=response.headers.get("content-type"))
+            
+            content_type = response.headers.get("content-type", "application/octet-stream")
+            # For favicon, browsers are often lenient with content type, but images should be images.
+            if not is_favicon and not content_type.lower().startswith("image/"):
+                 return create_error_html_response(
+                    title="Invalid Content Type",
+                    message=f"The resource at {html.escape(target_url)} was found but does not appear to be an image.",
+                    status_code=415,
+                    details=f"Expected content type starting with 'image/', but received '{html.escape(content_type)}'."
+                )
+            return StreamingResponse(io.BytesIO(response.content), media_type=content_type)
+
     except httpx.HTTPStatusError as e:
-        return create_error_html_response("Fetch Error: {}".format(e.response.status_code), "Could not retrieve resource from: {}".format(html.escape(target_url)), e.response.status_code, "Reason: {}".format(e.response.reason_phrase))
+        error_guidance = f"""
+        <div class="guidance">
+            <p>The server at <a href="{IMAGE_BASE_URL}" target="_blank">{IMAGE_BASE_URL}</a> responded with an error when trying to fetch <code class="example-path">{html.escape(item_path)}</code>.</p>
+            <ul>
+                <li>This might mean the image or resource doesn't exist there, or there was a server-side issue.</li>
+                <li>Verify the path is correct.</li>
+            </ul>
+            <p>Return to the <a href="/">API Explorer Home Page</a>.</p>
+        </div>
+        """
+        return create_error_html_response(
+            title=f"Fetch Error: {e.response.status_code}",
+            message=f"Could not retrieve resource from: {html.escape(target_url)}.",
+            status_code=e.response.status_code,
+            details=f"Reason: {e.response.reason_phrase}\nUpstream Response: {e.response.text}",
+            guidance_html=error_guidance
+        )
+    except httpx.RequestError as e:
+        return create_error_html_response(
+            title="Connection Error",
+            message=f"Could not connect to server at: {html.escape(target_url)}.",
+            status_code=503,
+            details=str(e),
+            guidance_html=f"<div class='guidance'><p>Please check your network connection and ensure <a href='{IMAGE_BASE_URL}' target='_blank'>{IMAGE_BASE_URL}</a> is accessible. Return to the <a href='/'>API Explorer Home Page</a>.</p></div>"
+        )
     except Exception as e:
-        return create_error_html_response("Connection Error", "Could not connect to server at: {}".format(html.escape(IMAGE_BASE_URL)), 503, str(e))
+        return create_error_html_response(
+            title="Unexpected Error",
+            message="An unexpected error occurred while proxying the resource.",
+            status_code=500,
+            details=str(e),
+            guidance_html=f"<div class='guidance'><p>An unknown error occurred. You may want to try again or check the <a href='/'>API Explorer Home Page</a>.</p></div>"
+        )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=3000)

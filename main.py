@@ -29,54 +29,56 @@ HTML_TEMPLATE = Template("""
 </html>
 """)
 
-INDEX_HTML = Template("""
+INDEX_HTML = """
 <!DOCTYPE html>
-<html lang=\"en\">
+<html lang="en">
 <head>
-  <meta charset=\"UTF-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>Slug Viewer</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BGSI API Viewer</title>
   <style>
     body {
-      background: #1a1a1a;
+      background: #121212;
       color: #f0f0f0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
-      padding: 2rem;
+      padding: 3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
     }
     h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+    }
+    p {
+      font-size: 1.2rem;
+      max-width: 600px;
       text-align: center;
     }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      margin: 0.5rem 0;
-      background: #2c2c2c;
-      padding: 1rem;
-      border-radius: 8px;
-      transition: background 0.3s;
-    }
-    li:hover {
-      background: #3a3a3a;
-    }
-    a {
-      color: #4fc3f7;
-      text-decoration: none;
+    code {
+      background: #333;
+      padding: 0.2rem 0.5rem;
+      border-radius: 5px;
+      color: #00eaff;
     }
   </style>
 </head>
 <body>
-  <h1>API Slugs</h1>
-  <ul>
-    $items
-  </ul>
+  <h1>Welcome to the BGSI API Viewer</h1>
+  <p>To explore data, use the <code>/api/&lt;slug&gt;</code> endpoint in the address bar.</p>
+  <p>Example: <code>/api/stats</code></p>
 </body>
 </html>
 """)
 
 API_BASE = "https://api.bgsi.gg"
+
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    return HTMLResponse(INDEX_HTML)
 
 @app.get("/", response_class=HTMLResponse)
 async def index():

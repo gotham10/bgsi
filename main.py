@@ -9,42 +9,6 @@ import io
 
 app = FastAPI(title="BGSI.GG API Explorer & Image Proxy")
 
-HTML_TEMPLATE = Template("""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>API Data Response</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    body {
-      background-color: #080808;
-      color: #cccccc;
-      font-family: 'Roboto Mono', monospace;
-      font-size: 14px;
-      line-height: 1.6;
-      padding: 2rem;
-      margin: 0;
-    }
-    pre {
-      background-color: #161616;
-      color: #d0d0d0;
-      padding: 2rem;
-      border-radius: 10px;
-      border: 1px solid #2a2a2a;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.6);
-      white-space: pre;
-      overflow-x: auto;
-      font-size: 0.875rem;
-    }
-  </style>
-</head>
-<body>
-  <pre>$json</pre>
-</body>
-</html>
-""")
-
 INDEX_HTML = Template("""
 <!DOCTYPE html>
 <html lang="en">
@@ -221,6 +185,47 @@ COMMON_HEADERS = {
     "Origin": API_BASE_URL,
 }
 
+def generate_api_response_html(json_data_str: str, page_title: str, og_description: str, og_image_url: str, og_url: str) -> str:
+    escaped_page_title = html.escape(page_title)
+    escaped_og_description = html.escape(og_description)
+    escaped_og_image_url = html.escape(og_image_url)
+    escaped_og_url = html.escape(og_url)
+    escaped_json_data_str = html.escape(json_data_str)
+
+    return f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{escaped_page_title}</title>
+  <meta name="description" content="{escaped_og_description}">
+  <meta name="theme-color" content="#080808">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{escaped_og_url}">
+  <meta property="og:title" content="{escaped_page_title}">
+  <meta property="og:description" content="{escaped_og_description}">
+  <meta property="og:image" content="{escaped_og_image_url}">
+
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="{escaped_og_url}">
+  <meta property="twitter:title" content="{escaped_page_title}">
+  <meta property="twitter:description" content="{escaped_og_description}">
+  <meta property="twitter:image" content="{escaped_og_image_url}">
+
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; padding: 2rem; margin: 0; }}
+    pre {{ background-color: #161616; color: #d0d0d0; padding: 2rem; border-radius: 10px; border: 1px solid #2a2a2a; box-shadow: 0 6px 20px rgba(0,0,0,0.6); white-space: pre; overflow-x: auto; font-size: 0.875rem; }}
+  </style>
+</head>
+<body>
+  <pre>{escaped_json_data_str}</pre>
+</body>
+</html>
+"""
+
 def create_error_html_response(title: str, message: str, status_code: int, details: str = "", guidance_html: str = ""):
     escaped_title = html.escape(title)
     escaped_message = html.escape(message)
@@ -272,15 +277,61 @@ async def proxy_api(path: str, request: Request):
             response = await client.get(target_url)
             response.raise_for_status()
             
+            json_data_obj = {}
+            pretty_json_str = response.text
             content_type = response.headers.get("content-type", "")
-            if "application/json" in content_type:
-                json_data = response.json()
-                pretty_json = json.dumps(json_data, indent=2, sort_keys=True)
-            else:
-                pretty_json = response.text
 
-            escaped_output = html.escape(pretty_json)
-            return HTML_TEMPLATE.substitute(json=escaped_output)
+            if "application/json" in content_type:
+                try:
+                    json_data_obj = response.json()
+                    pretty_json_str = json.dumps(json_data_obj, indent=2, sort_keys=True)
+                except json.JSONDecodeError:
+                    pass # Keep pretty_json_str as response.text if not valid JSON
+
+            og_page_title = f"{path.replace('/', ' ').title()} - BGSI.GG Data"
+            og_description = f"Live data for {path} from the BGSI.GG API, via API Explorer."
+            og_image_url = f"{str(request.base_url).rstrip('/')}/Logo.png" # Default image
+            og_url = str(request.url)
+
+            if path.startswith("items/") and isinstance(json_data_obj, dict):
+                item_slug_from_path = path.split('/')[-1]
+                pet_data_root = json_data_obj.get("pet")
+                target_variant_data_for_og = None
+
+                if isinstance(pet_data_root, dict):
+                    if pet_data_root.get("slug") == item_slug_from_path:
+                        target_variant_data_for_og = pet_data_root
+                    
+                    if isinstance(pet_data_root.get("allVariants"), list):
+                        for variant_in_list in pet_data_root["allVariants"]:
+                            if isinstance(variant_in_list, dict) and variant_in_list.get("slug") == item_slug_from_path:
+                                target_variant_data_for_og = variant_in_list 
+                                break
+                    
+                    if target_variant_data_for_og is None : # Fallback if no exact slug match from variants or root
+                        target_variant_data_for_og = pet_data_root
+
+
+                    if target_variant_data_for_og and isinstance(target_variant_data_for_og, dict):
+                        og_page_title = target_variant_data_for_og.get("name", og_page_title)
+                        og_description = target_variant_data_for_og.get("description", f"Details for {og_page_title}.")
+                        pet_image_path_suffix = target_variant_data_for_og.get("image")
+                        if pet_image_path_suffix:
+                            og_image_url = f"{IMAGE_BASE_URL}{pet_image_path_suffix}"
+            
+            elif path == "stats" and isinstance(json_data_obj, dict) : # Specific handling for /api/stats
+                og_page_title = "BGSI.GG API Statistics"
+                og_description = "Live global statistics and counts from the BGSI.GG API."
+                # og_image_url and og_url remain default.
+            
+            html_content = generate_api_response_html(
+                json_data_str=pretty_json_str,
+                page_title=og_page_title,
+                og_description=og_description,
+                og_image_url=og_image_url,
+                og_url=og_url
+            )
+            return HTMLResponse(content=html_content)
 
     except httpx.HTTPStatusError as e:
         return create_error_html_response(
@@ -297,14 +348,13 @@ async def proxy_api(path: str, request: Request):
             details=str(e)
         )
     except json.JSONDecodeError as e_json:
-        raw_text = getattr(e_json, 'doc', 'N/A (could not get raw text from response)')
-        if 'response' in locals() and hasattr(response, 'text'): 
-             raw_text = response.text
+        # This case should be less frequent now as we try to parse and fallback
+        raw_text = response.text if 'response' in locals() and hasattr(response, 'text') else 'N/A'
         return create_error_html_response(
             title="API Response Parsing Error",
-            message="Failed to parse JSON response from the API.",
+            message="Failed to parse JSON response from the API (or it was not JSON).",
             status_code=502,
-            details=f"Error: {e_json.msg}\nLine: {e_json.lineno}, Column: {e_json.colno}\n\nRaw Response Text (may be truncated):\n{raw_text[:1000]}"
+            details=f"Error: {e_json.msg if hasattr(e_json, 'msg') else str(e_json)}\n\nRaw Response Text (may be truncated):\n{raw_text[:1000]}"
         )
     except Exception as e:
         return create_error_html_response(
@@ -316,7 +366,11 @@ async def proxy_api(path: str, request: Request):
 
 @app.get("/{item_path:path}")
 async def proxy_image_or_not_found(item_path: str, request: Request):
-    if not item_path.lower().endswith(IMAGE_EXTENSIONS) and item_path != "favicon.ico":
+    # Allow favicon.ico specifically, otherwise check extensions
+    is_image_path = item_path.lower().endswith(IMAGE_EXTENSIONS)
+    is_favicon = item_path.lower() == "favicon.ico"
+
+    if not (is_image_path or is_favicon):
         not_found_guidance = f"""
         <div class="guidance">
             <p>If you were trying to access an image or a specific resource:</p>
@@ -355,7 +409,8 @@ async def proxy_image_or_not_found(item_path: str, request: Request):
             response.raise_for_status()
             
             content_type = response.headers.get("content-type", "application/octet-stream")
-            if not content_type.lower().startswith("image/"):
+            # For favicon, browsers are often lenient with content type, but images should be images.
+            if not is_favicon and not content_type.lower().startswith("image/"):
                  return create_error_html_response(
                     title="Invalid Content Type",
                     message=f"The resource at {html.escape(target_url)} was found but does not appear to be an image.",
@@ -369,31 +424,31 @@ async def proxy_image_or_not_found(item_path: str, request: Request):
         <div class="guidance">
             <p>The server at <a href="{IMAGE_BASE_URL}" target="_blank">{IMAGE_BASE_URL}</a> responded with an error when trying to fetch <code class="example-path">{html.escape(item_path)}</code>.</p>
             <ul>
-                <li>This might mean the image doesn't exist there, or there was a server-side issue.</li>
-                <li>Verify the image path is correct.</li>
+                <li>This might mean the image or resource doesn't exist there, or there was a server-side issue.</li>
+                <li>Verify the path is correct.</li>
             </ul>
             <p>Return to the <a href="/">API Explorer Home Page</a>.</p>
         </div>
         """
         return create_error_html_response(
-            title=f"Image Fetch Error: {e.response.status_code}",
-            message=f"Could not retrieve image from: {html.escape(target_url)}.",
+            title=f"Fetch Error: {e.response.status_code}",
+            message=f"Could not retrieve resource from: {html.escape(target_url)}.",
             status_code=e.response.status_code,
             details=f"Reason: {e.response.reason_phrase}\nUpstream Response: {e.response.text}",
             guidance_html=error_guidance
         )
     except httpx.RequestError as e:
         return create_error_html_response(
-            title="Image Connection Error",
-            message=f"Could not connect to image server at: {html.escape(target_url)}.",
+            title="Connection Error",
+            message=f"Could not connect to server at: {html.escape(target_url)}.",
             status_code=503,
             details=str(e),
             guidance_html=f"<div class='guidance'><p>Please check your network connection and ensure <a href='{IMAGE_BASE_URL}' target='_blank'>{IMAGE_BASE_URL}</a> is accessible. Return to the <a href='/'>API Explorer Home Page</a>.</p></div>"
         )
     except Exception as e:
         return create_error_html_response(
-            title="Unexpected Image Error",
-            message="An unexpected error occurred while proxying the image.",
+            title="Unexpected Error",
+            message="An unexpected error occurred while proxying the resource.",
             status_code=500,
             details=str(e),
             guidance_html=f"<div class='guidance'><p>An unknown error occurred. You may want to try again or check the <a href='/'>API Explorer Home Page</a>.</p></div>"

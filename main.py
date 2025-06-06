@@ -180,14 +180,6 @@ COMMON_HEADERS = {
     "Origin": API_BASE_URL,
 }
 
-Of course. Here is the complete, fully corrected generate_api_response_html function.
-
-This version fixes both the original IndentationError and the subsequent NameError by correctly accepting favicon_url as a parameter and defining escaped_favicon_url from it.
-
-Python
-
-import html
-
 def generate_api_response_html(json_data_str: str, page_title: str, og_description: str, og_image_url: str, og_url: str, favicon_url: str) -> str:
     escaped_page_title = html.escape(page_title)
     escaped_og_description = html.escape(og_description)
@@ -286,11 +278,11 @@ async def proxy_api(path: str, request: Request):
                     json_data_obj = response.json()
                     pretty_json_str = json.dumps(json_data_obj, indent=2, sort_keys=True)
                 except json.JSONDecodeError:
-                    pass # Keep pretty_json_str as response.text if not valid JSON
+                    pass
 
             og_page_title = f"{path.replace('/', ' ').title()} - BGSI.GG Data"
             og_description = f"Live data for {path} from the BGSI.GG API, via API Explorer."
-            og_image_url = f"{str(request.base_url).rstrip('/')}/Logo.png" # Default image
+            og_image_url = f"{str(request.base_url).rstrip('/')}/Logo.png"
             og_url = str(request.url)
 
             if path.startswith("items/") and isinstance(json_data_obj, dict):
@@ -308,9 +300,8 @@ async def proxy_api(path: str, request: Request):
                                 target_variant_data_for_og = variant_in_list 
                                 break
                     
-                    if target_variant_data_for_og is None : # Fallback if no exact slug match from variants or root
+                    if target_variant_data_for_og is None:
                         target_variant_data_for_og = pet_data_root
-
 
                     if target_variant_data_for_og and isinstance(target_variant_data_for_og, dict):
                         og_page_title = target_variant_data_for_og.get("name", og_page_title)
@@ -319,17 +310,17 @@ async def proxy_api(path: str, request: Request):
                         if pet_image_path_suffix:
                             og_image_url = f"{IMAGE_BASE_URL}{pet_image_path_suffix}"
             
-            elif path == "stats" and isinstance(json_data_obj, dict) : # Specific handling for /api/stats
+            elif path == "stats" and isinstance(json_data_obj, dict):
                 og_page_title = "BGSI.GG API Statistics"
                 og_description = "Live global statistics and counts from the BGSI.GG API."
-                # og_image_url and og_url remain default.
             
             html_content = generate_api_response_html(
                 json_data_str=pretty_json_str,
                 page_title=og_page_title,
                 og_description=og_description,
                 og_image_url=og_image_url,
-                og_url=og_url
+                og_url=og_url,
+                favicon_url=f"{str(request.base_url).rstrip('/')}/favicon.ico"
             )
             return HTMLResponse(content=html_content)
 
@@ -348,7 +339,6 @@ async def proxy_api(path: str, request: Request):
             details=str(e)
         )
     except json.JSONDecodeError as e_json:
-        # This case should be less frequent now as we try to parse and fallback
         raw_text = response.text if 'response' in locals() and hasattr(response, 'text') else 'N/A'
         return create_error_html_response(
             title="API Response Parsing Error",
@@ -366,7 +356,6 @@ async def proxy_api(path: str, request: Request):
 
 @app.get("/{item_path:path}")
 async def proxy_image_or_not_found(item_path: str, request: Request):
-    # Allow favicon.ico specifically, otherwise check extensions
     is_image_path = item_path.lower().endswith(IMAGE_EXTENSIONS)
     is_favicon = item_path.lower() == "favicon.ico"
 
@@ -409,14 +398,13 @@ async def proxy_image_or_not_found(item_path: str, request: Request):
             response.raise_for_status()
             
             content_type = response.headers.get("content-type", "application/octet-stream")
-            # For favicon, browsers are often lenient with content type, but images should be images.
             if not is_favicon and not content_type.lower().startswith("image/"):
-                 return create_error_html_response(
-                    title="Invalid Content Type",
-                    message=f"The resource at {html.escape(target_url)} was found but does not appear to be an image.",
-                    status_code=415,
-                    details=f"Expected content type starting with 'image/', but received '{html.escape(content_type)}'."
-                )
+                   return create_error_html_response(
+                       title="Invalid Content Type",
+                       message=f"The resource at {html.escape(target_url)} was found but does not appear to be an image.",
+                       status_code=415,
+                       details=f"Expected content type starting with 'image/', but received '{html.escape(content_type)}'."
+                   )
             return StreamingResponse(io.BytesIO(response.content), media_type=content_type)
 
     except httpx.HTTPStatusError as e:

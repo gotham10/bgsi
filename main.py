@@ -195,7 +195,7 @@ def generate_api_response_html(json_data_str: str, page_title: str, og_descripti
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{escaped_page_title}</title>
   <meta name="description" content="{escaped_og_description}">
-  <meta name="theme-color" content="#080808">
+  <meta name="theme-color" content="#161616">
   <meta property="og:type" content="website">
   <meta property="og:url" content="{escaped_og_url}">
   <meta property="og:title" content="{escaped_page_title}">
@@ -209,8 +209,8 @@ def generate_api_response_html(json_data_str: str, page_title: str, og_descripti
   <link rel="icon" href="{escaped_favicon_url}" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; padding: 2rem; margin: 0; }}
-    pre {{ background-color: #161616; color: #d0d0d0; padding: 2rem; border-radius: 10px; border: 1px solid #2a2a2a; box-shadow: 0 6px 20px rgba(0,0,0,0.6); white-space: pre; overflow-x: auto; font-size: 0.875rem; }}
+    body {{ background-color: #161616; color: #d0d0d0; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; padding: 2rem; margin: 0; }}
+    pre {{ white-space: pre-wrap; word-wrap: break-word; font-size: 0.875rem; }}
   </style>
 </head>
 <body>

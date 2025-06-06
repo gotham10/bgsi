@@ -192,7 +192,7 @@ def generate_api_response_html(json_data_str: str, page_title: str, og_descripti
     escaped_og_url = html.escape(og_url)
     escaped_json_data_str = html.escape(json_data_str)
 
-return f"""
+    return f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -216,7 +216,7 @@ return f"""
 
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; margin: 0; }}
+    body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; padding: 2rem; margin: 0; }}
     pre {{ background-color: #161616; color: #d0d0d0; padding: 2rem; border-radius: 10px; border: 1px solid #2a2a2a; box-shadow: 0 6px 20px rgba(0,0,0,0.6); white-space: pre; overflow-x: auto; font-size: 0.875rem; }}
   </style>
 </head>

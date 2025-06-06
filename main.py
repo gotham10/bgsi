@@ -2,174 +2,423 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 import httpx
 import uvicorn
-from string import Template
 import json
 import html
 import io
 
 app = FastAPI(title="BGSI.GG API Explorer & Image Proxy")
 
-INDEX_HTML = Template("""
+INDEX_HTML = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BGSI.GG API Explorer</title>
-  <meta name="description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
-  <meta name="theme-color" content="#080808">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://bgsi-kyc3.onrender.com/">
-  <meta property="og:title" content="BGSI.GG API Explorer">
-  <meta property="og:description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
-  <meta property="og:image" content="https://bgsi-kyc3.onrender.com/Logo.png">
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="https://bgsi-kyc3.onrender.com/">
-  <meta property="twitter:title" content="BGSI.GG API Explorer">
-  <meta property="twitter:description" content="Explore live JSON responses and images from the BGSI.GG API. A simple and effective tool for API interaction.">
-  <meta property="twitter:image" content="https://bgsi-kyc3.onrender.com/Logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    @keyframes fadeInDown {
-      0% { opacity: 0; transform: translateY(-20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeInUp {
-      0% { opacity: 0; transform: translateY(20px); }
-      100% { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes backgroundPan {
-        0% { background-position: 0% center; }
-        100% { background-position: 200% center; }
-    }
-    body {
-      background: #080808;
-      background-image: linear-gradient(120deg, #080808 0%, #121212 50%, #080808 100%);
-      background-size: 200% 100%;
-      animation: backgroundPan 45s linear infinite;
-      color: #999999;
-      font-family: 'Roboto Mono', monospace;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      box-sizing: border-box;
-      text-align: center;
-      overflow-x: hidden;
-    }
-    .container {
-      background: rgba(18, 18, 18, 0.9);
-      backdrop-filter: blur(8px);
-      padding: 3rem 4rem;
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.7), 0 0 0 1px rgba(50, 50, 50, 0.5);
-      max-width: 900px;
-      width: 90%;
-      animation: fadeInDown 1s ease-out forwards;
-      border: 1px solid #282828;
-    }
-    h1 {
-      font-family: 'Orbitron', sans-serif;
-      color: #cccccc;
-      font-size: 3rem;
-      margin-bottom: 1.5rem;
-      letter-spacing: 1px;
-      animation: fadeInDown 0.8s ease-out 0.2s forwards;
-      opacity: 0;
-      text-shadow: 0 0 8px rgba(200, 200, 200, 0.15);
-    }
-    p {
-      font-size: 1.1rem;
-      line-height: 1.7;
-      margin-bottom: 1.5rem;
-      animation: fadeInUp 1s ease-out 0.4s forwards;
-      opacity: 0;
-    }
-    .api-info {
-      margin-bottom: 2.5rem;
-      font-size: 1rem;
-      color: #bbbbbb;
-      animation: fadeInUp 1s ease-out 0.6s forwards;
-      opacity: 0;
-    }
-    a {
-      color: #888888;
-      text-decoration: none;
-      transition: color 0.3s ease, text-shadow 0.3s ease;
-      font-weight: 500;
-    }
-    a:hover {
-      color: #aaaaaa;
-      text-shadow: 0 0 8px rgba(170, 170, 170, 0.3);
-    }
-    .instructions {
-      background: rgba(10, 10, 10, 0.8);
-      padding: 1.5rem 2rem;
-      border-radius: 10px;
-      margin-top: 2rem;
-      border-left: 4px solid #444444;
-      text-align: left;
-      animation: fadeInUp 1s ease-out 0.8s forwards;
-      opacity: 0;
-    }
-    .instructions p, .instructions ul li {
-        color: #bbbbbb;
-        font-size: 1rem;
-        margin-bottom: 0.8rem;
-        line-height: 1.6;
-    }
-    .instructions ul {
-        padding-left: 20px;
-        margin-top: 0.5rem;
-    }
-    .example-path {
-        font-family: 'Roboto Mono', monospace;
-        background-color: #101010;
-        color: #999999;
-        padding: 0.3em 0.6em;
-        border-radius: 5px;
-        font-weight: 500;
-        border: 1px solid #303030;
-    }
-    .footer-link {
-        margin-top: 3rem;
-        font-size: 0.9rem;
-        color: #777777;
-        animation: fadeInUp 1s ease-out 1s forwards;
-        opacity: 0;
-    }
-    .footer-link a {
-        font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BGSI.GG API Documentation</title>
+    <meta name="description" content="Official API documentation for the BGSI.GG platform. Explore endpoints for items, eggs, hatches, and more.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --http-get: #61afef;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            line-height: 1.6;
+            padding: 2rem 1rem;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.5rem;
+        }
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 0.5rem;
+        }
+        header p {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+        }
+        .endpoint-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: all 0.2s ease-in-out;
+        }
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            background-color: rgba(0,0,0,0.1);
+        }
+        .endpoint-header:hover {
+            background-color: rgba(88, 166, 255, 0.1);
+        }
+        .http-method {
+            background-color: var(--http-get);
+            color: #161b22;
+            padding: 0.25rem 0.6rem;
+            border-radius: 5px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-right: 1rem;
+            font-family: 'Fira Code', monospace;
+        }
+        .endpoint-path {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        .endpoint-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            border-top: 1px solid var(--border-color);
+        }
+        .endpoint-details.active {
+            max-height: 1000px;
+            transition: max-height 0.5s ease-in;
+        }
+        .details-content {
+            padding: 1.5rem;
+        }
+        .details-content p {
+            margin-bottom: 1rem;
+        }
+        .details-content h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        .param-list {
+            list-style: none;
+            padding-left: 1rem;
+        }
+        .param-list li {
+            margin-bottom: 0.75rem;
+        }
+        code {
+            font-family: 'Fira Code', monospace;
+            background-color: rgba(110,118,129,0.2);
+            padding: 0.2em 0.4em;
+            margin: 0;
+            font-size: 85%;
+            border-radius: 6px;
+        }
+        .example-block {
+            background-color: #010409;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: var(--text-secondary);
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h1>API Data Explorer</h1>
-    <p>Explore live JSON responses from the <a href="https://api.bgsi.gg" target="_blank" rel="noopener noreferrer">BGSI.GG API</a> or view proxied images.</p>
-    <div class="api-info">
-      <p>This interface allows you to directly proxy API requests and view data, or proxy images from the target domain.
-      To fetch API data, modify the URL by appending the API path you wish to query after <code class="example-path">/api/</code>.
-      To view an image, use its path directly (e.g., <code class="example-path">/items/image.png</code>).</p>
+    <div class="container">
+        <header>
+            <h1>BGSI.GG API Documentation</h1>
+            <p>Your comprehensive guide to interacting with the BGSI.GG API.</p>
+        </header>
+
+        <div class="endpoints">
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/auth/user</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Retrieves information about the currently authenticated user.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/stats</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Gets general statistics for the site or application.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/items</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>A comprehensive endpoint to search, filter, and sort items.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>search</code>: The name of the item to search for.</li>
+                            <li><code>sort</code>: The order to sort results (e.g., <code>value-desc</code>).</li>
+                            <li><code>variant</code>: The specific version of the item (e.g., <code>Normal</code>, <code>Shiny</code>).</li>
+                            <li><code>category</code>: The category of the item (e.g., <code>all</code>, <code>secret</code>).</li>
+                            <li><code>page</code>: The page number for the results.</li>
+                            <li><code>limit</code>: The number of results to return per page.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/items?search=kraken&amp;sort=value-desc&amp;variant=Shiny&amp;category=secret&amp;page=1&amp;limit=20</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/items/high-demand</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Fetches a list of items that are currently in high demand.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>limit</code>: The maximum number of high-demand items to return.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/items/high-demand?limit=10</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/items/highest-value</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Retrieves a list of the items with the highest value.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>limit</code>: The maximum number of highest-value items to return.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/items/highest-value?limit=10</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/items/recent</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Gets a list of the most recently added items.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>limit</code>: The maximum number of recent items to return.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/items/recent?limit=10</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/items/{ITEM_NAME}</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Retrieves details for a single, specific item. Replace <code>{ITEM_NAME}</code> with the exact name of the pet or item.</p>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/items/soarin-surfer</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/eggs</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Returns a list of all available eggs.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/eggs/{EGG_NAME}</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Retrieves information for a single, specific egg. Replace <code>{EGG_NAME}</code> with the name of the egg.</p>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/eggs/icecream-egg</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/hatches</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Provides a list of pet hatches, with multiple filtering options.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>petName</code>: Filter by the name of the hatched pet.</li>
+                            <li><code>hatcherName</code>: Filter by the name of the player who hatched the pet.</li>
+                            <li><code>eggType</code>: Filter by the type of egg.</li>
+                            <li><code>minValue</code>: Set a minimum value for the hatched pets shown.</li>
+                            <li><code>publicOnly</code>: Can be <code>true</code> or <code>false</code> to show only public hatches or all hatches.</li>
+                            <li><code>page</code>: The page number for the results.</li>
+                            <li><code>limit</code>: The number of results to return per page.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/hatches?petName=kraken&amp;hatcherName=e&amp;eggType=Egg&amp;minValue=5&amp;publicOnly=false&amp;page=1&amp;limit=20</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/trade-ads</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Fetches a list of trade advertisements.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                             <li><code>page</code>: The page number for the results.</li>
+                             <li><code>limit</code>: The number of ads to return per page.</li>
+                             <li><code>status</code>: The current status of the trade ad (e.g., <code>published</code>).</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/trade-ads?page=1&amp;limit=10&amp;status=published</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/conversations</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Retrieves a list of user conversations.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>page</code>: The page number for the results.</li>
+                            <li><code>limit</code>: The number of conversations to return per page.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/conversations?page=1&amp;limit=20</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/conversations/{ID}/messages</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Gets the messages within a specific conversation. Replace <code>{ID}</code> with the unique ID for the conversation.</p>
+                        <h4>Query Parameters</h4>
+                        <ul class="param-list">
+                            <li><code>limit</code>: The number of messages to retrieve.</li>
+                        </ul>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/conversations/1bb50f6a-b22e-4c6b-91fd-b2990cc2374c/messages?limit=25</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/conversations/{ID}/trade-offers</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Fetches trade offers associated with a specific conversation. Replace <code>{ID}</code> with the unique ID for the conversation.</p>
+                        <h4>Example</h4>
+                        <div class="example-block">/api/conversations/1bb50f6a-b22e-4c6b-91fd-b2990cc2374c/trade-offers</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="endpoint-card">
+                <div class="endpoint-header">
+                    <span class="http-method">GET</span>
+                    <span class="endpoint-path">/api/reports</span>
+                </div>
+                <div class="endpoint-details">
+                    <div class="details-content">
+                        <p>Likely used for submitting or viewing reports.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
-    <div class="instructions">
-        <p><strong>How to use:</strong></p>
-        <p>1. <strong>API Data:</strong> To access data from <code class="example-path">/api/some/endpoint</code> on the target API, navigate to:</p>
-        <p><a href="/api/some/endpoint">http://127.0.0.1:3000/api/some/endpoint</a></p>
-        <p>2. <strong>Images:</strong> To view an image like <code class="example-path">/items/fire-basilisk.png</code> from the target domain, navigate to:</p>
-        <p><a href="/items/fire-basilisk.png">http://127.0.0.1:3000/items/fire-basilisk.png</a></p>
-        <p>   Or for an image at root like <code class="example-path">/Logo.png</code>:</p>
-        <p><a href="/Logo.png">http://127.0.0.1:3000/Logo.png</a></p>
-        <p>3. Query parameters work for API paths: <code class="example-path">/api/v1/data?type=example</code></p>
-    </div>
-    <p class="footer-link">View data and images from <a href="https://www.bgsi.gg" target="_blank" rel="noopener noreferrer">www.bgsi.gg</a>.</p>
-  </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const headers = document.querySelectorAll('.endpoint-header');
+            headers.forEach(header => {
+                header.addEventListener('click', () => {
+                    const details = header.nextElementSibling;
+                    details.classList.toggle('active');
+                });
+            });
+        });
+    </script>
 </body>
 </html>
-""")
+"""
 
 API_BASE_URL = "https://api.bgsi.gg"
 IMAGE_BASE_URL = "https://www.bgsi.gg"
@@ -249,7 +498,7 @@ def create_error_html_response(title: str, message: str, status_code: int, detai
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return INDEX_HTML.substitute()
+    return HTMLResponse(content=INDEX_HTML)
 
 @app.get("/api/{path:path}", response_class=HTMLResponse)
 async def proxy_api(path: str, request: Request):

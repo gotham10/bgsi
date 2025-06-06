@@ -180,40 +180,49 @@ COMMON_HEADERS = {
     "Origin": API_BASE_URL,
 }
 
-def generate_api_response_html(json_data_str: str, page_title: str, og_description: str, og_image_url: str, og_url: str) -> str:
+Of course. Here is the complete, fully corrected generate_api_response_html function.
+
+This version fixes both the original IndentationError and the subsequent NameError by correctly accepting favicon_url as a parameter and defining escaped_favicon_url from it.
+
+Python
+
+import html
+
+def generate_api_response_html(json_data_str: str, page_title: str, og_description: str, og_image_url: str, og_url: str, favicon_url: str) -> str:
     escaped_page_title = html.escape(page_title)
     escaped_og_description = html.escape(og_description)
     escaped_og_image_url = html.escape(og_image_url)
     escaped_og_url = html.escape(og_url)
+    escaped_favicon_url = html.escape(favicon_url)
     escaped_json_data_str = html.escape(json_data_str)
-
-    return f"""<!DOCTYPE html>
+    return f"""
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="color-scheme" content="light dark">
   <title>{escaped_page_title}</title>
   <meta name="description" content="{escaped_og_description}">
   <meta name="theme-color" content="#080808">
-
   <meta property="og:type" content="website">
   <meta property="og:url" content="{escaped_og_url}">
   <meta property="og:title" content="{escaped_page_title}">
   <meta property="og:description" content="{escaped_og_description}">
   <meta property="og:image" content="{escaped_og_image_url}">
-
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="{escaped_og_url}">
   <meta property="twitter:title" content="{escaped_page_title}">
   <meta property="twitter:description" content="{escaped_og_description}">
   <meta property="twitter:image" content="{escaped_og_image_url}">
-
   <link rel="icon" href="{escaped_favicon_url}" type="image/png">
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body {{ background-color: #080808; color: #cccccc; font-family: 'Roboto Mono', monospace; font-size: 14px; line-height: 1.6; padding: 2rem; margin: 0; }}
+    pre {{ background-color: #161616; color: #d0d0d0; padding: 2rem; border-radius: 10px; border: 1px solid #2a2a2a; box-shadow: 0 6px 20px rgba(0,0,0,0.6); white-space: pre; overflow-x: auto; font-size: 0.875rem; }}
+  </style>
 </head>
 <body>
-  <pre style="word-wrap: break-word; white-space: pre-wrap;">{escaped_json_data_str}</pre>
+  <pre>{escaped_json_data_str}</pre>
 </body>
 </html>
 """
@@ -222,7 +231,6 @@ def create_error_html_response(title: str, message: str, status_code: int, detai
     escaped_title = html.escape(title)
     escaped_message = html.escape(message)
     escaped_details = html.escape(details)
-    
     error_page_content = f"""
     <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>{escaped_title}</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&family=Orbitron:wght@700&display=swap" rel="stylesheet">

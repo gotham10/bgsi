@@ -187,7 +187,7 @@ def generate_api_response_html(json_data_str: str, page_title: str, og_descripti
     escaped_og_url = html.escape(og_url)
     escaped_json_data_str = html.escape(json_data_str)
 
-  return f"""<!DOCTYPE html>
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
